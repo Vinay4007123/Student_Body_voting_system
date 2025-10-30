@@ -1,129 +1,101 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
+const API_URL = "http://localhost:5000";
 
-// This is the component for the admin to see and approve voters
-const VerifyVoters = () => {
+const VerifyVoters = ({ token }) => {
   const [pendingVoters, setPendingVoters] = useState([]);
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Function to fetch pending voters from the backend
-  const fetchPendingVoters = async () => {
-    setError('');
-    setMessage('');
-    try {
-      const response = await fetch('http://localhost:5000/api/admin/pending');
-      if (!response.ok) throw new Error('Failed to fetch pending voters');
-      const data = await response.json();
-      setPendingVoters(data);
-    } catch (err) {
-      setError('Error fetching pending voters: ' + err.message);
-    }
-  };
-
-  // Fetch voters when component loads
-  useEffect(() => {
-    fetchPendingVoters();
-  }, []);
-
-  // Function to handle approving a voter
-  const handleApprove = async (voterId) => {
-    setError('');
-    setMessage('');
-    try {
-      const response = await fetch(`http://localhost:5000/api/admin/approve/${voterId}`, {
-        method: 'PATCH',
-      });
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.msg || 'Failed to approve voter');
-      }
-      
-      setMessage(data.msg); // Show "Voter approved"
-      // Remove the approved voter from the list
-      setPendingVoters(prev => prev.filter(voter => voter._id !== voterId));
-      
-    } catch (err) {
-      setError('Error: ' + err.message);
-    }
-  };
-
-  // Styles (you can move these to your main style object)
+  // Define styles locally since it doesn't receive 'styles' prop
+  const btnStyles = (color) => ({
+    background: color, color: "#fff", border: "none", borderRadius: "6px",
+    padding: "8px 16px", fontWeight: "bold", cursor: "pointer", margin: "0 5px"
+  });
+  
   const tableStyle = {
     width: "100%", 
-    marginTop: 20, 
-    borderCollapse: "collapse"
+    borderCollapse: "collapse", 
+    color: '#333' // <-- Fixed text color
   };
+  
   const thStyle = {
-    border: "1px solid #ddd",
-    padding: 8,
-    background: "#f2f2f2",
-    textAlign: "left",
+    background: '#eee',
+    padding: '12px 8px',
+    border: '1px solid #ddd',
+    textAlign: 'left',
   };
+
   const tdStyle = {
-    border: "1px solid #ddd",
-    padding: 8,
-    textAlign: "left",
-    verticalAlign: "middle",
+    border: '1px solid #ddd', 
+    padding: '12px 8px',
+    textAlign: 'left',
   };
-  const imgStyle = {
-    width: 100,
-    height: "auto",
-    cursor: "pointer",
-    display: "block",
+
+
+  const fetchPendingVoters = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_URL}/api/admin/pending`, {
+        headers: { "x-auth-token": token } // <-- Send token
+      });
+      if (!response.ok) throw new Error("Failed to fetch pending voters.");
+      const data = await response.json();
+      setPendingVoters(data);
+      setError(null);
+    } catch (err) { 
+      console.error(err);
+      setError(err.message); 
+    } 
+    finally { setLoading(false); }
   };
-  const buttonStyle = {
-    padding: "5px 10px",
-    background: "#28a745",
-    color: "white",
-    border: "none",
-    borderRadius: 4,
-    cursor: "pointer",
+
+  useEffect(() => {
+    if (token) fetchPendingVoters();
+  }, [token]);
+
+  const handleAction = async (voterId, action) => {
+    try {
+      const response = await fetch(`${API_URL}/api/admin/${action}/${voterId}`, {
+        method: "PATCH",
+        headers: { "x-auth-token": token } // <-- Send token
+      });
+      if (!response.ok) throw new Error(`Failed to ${action} voter.`);
+      setPendingVoters((current) => current.filter((v) => v._id !== voterId));
+    } catch (err) { 
+      console.error(err);
+      alert(`Error: ${err.message}`); 
+    }
   };
+  
+  if (loading) return <div>Loading Pending Voters...</div>;
+  if (error) return <div style={{color: 'red', fontWeight: 'bold'}}>Error: {error}</div>;
 
   return (
     <div>
-      <center><h3>Voter Verification Requests</h3></center>
-      {message && <div style={{ color: 'green', textAlign: 'center', marginBottom: '1rem' }}>{message}</div>}
-      {error && <div style={{ color: 'red', textAlign: 'center', marginBottom: '1rem' }}>{error}</div>}
-      
+      <center><h3>Verify Voters</h3></center>
       {pendingVoters.length === 0 ? (
-        <p style={{ textAlign: 'center', marginTop: 20 }}>No pending verification requests.</p>
+        <div style={{textAlign: "center", padding: 40}}>No pending voters found.</div>
       ) : (
         <table style={tableStyle}>
           <thead>
             <tr>
-              <th style={thStyle}>Reg. Number</th>
-              <th style={thStyle}>Certificate (Click to view)</th>
-              <th style={thStyle}>Action</th>
+              <th style={thStyle}>Reg. No.</th>
+              <th style={thStyle}>Certificate</th>
+              <th style={thStyle}>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {pendingVoters.map(voter => (
+            {pendingVoters.map((voter) => (
               <tr key={voter._id}>
                 <td style={tdStyle}>{voter.regno}</td>
                 <td style={tdStyle}>
-                  {/* The URL points to your backend's static file server */}
-                  <a 
-                    href={`http://localhost:5000/${voter.certificateImage.replace(/\\/g, '/')}`} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                  >
-                    <img 
-                      src={`http://localhost:5000/${voter.certificateImage.replace(/\\/g, '/')}`} 
-                      alt="Certificate" 
-                      style={imgStyle}
-                    />
+                  <a href={`${API_URL}/${voter.certificateImage}`} target="_blank" rel="noopener noreferrer">
+                    View Image
                   </a>
                 </td>
-                <td style={{...tdStyle, textAlign: "center"}}>
-                  <button 
-                    style={buttonStyle}
-                    onClick={() => handleApprove(voter._id)}
-                  >
-                    Approve
-                  </button>
-                  {/* You could add a 'Reject' button here too */}
+                <td style={tdStyle}>
+                  <button style={btnStyles('#28a745')} onClick={() => handleAction(voter._id, 'approve')}>Approve</button>
+                  <button style={btnStyles('#dc3545')} onClick={() => handleAction(voter._id, 'reject')}>Reject</button>
                 </td>
               </tr>
             ))}
@@ -133,5 +105,4 @@ const VerifyVoters = () => {
     </div>
   );
 };
-
 export default VerifyVoters;

@@ -4,7 +4,8 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Home from "./components/Home";
 import CandidateDashboard from "./components/CandidateDashboard";
 import ThankYou from "./components/ThankYou";
-import Voting from "./components/Voting";
+// import Voting from "./components/Voting"; // <-- Removed this line
+import VoterPortal from "./components/VoterPortal"; // <-- Added this line for the new component
 import AdminLogin from "./components/AdminLogin";
 import CandidateLogin from "./components/CandidateLogin";
 import Complaints from "./components/Complaints";
@@ -19,7 +20,7 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/candidate-dashboard" element={<CandidateDashboard />} />
         <Route path="/thank-you" element={<ThankYou />} />
-        <Route path="/voting" element={<Voting />} />
+        <Route path="/voting" element={<VoterPortal />} /> {/* <-- Changed this line */}
         <Route path="/admin-login" element={<AdminLogin />} />
         <Route path="/candidate-login" element={<CandidateLogin />} />
         <Route path="/complaints" element={<Complaints />} />

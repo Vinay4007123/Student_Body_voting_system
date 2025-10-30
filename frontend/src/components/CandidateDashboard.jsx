@@ -1,5 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+
+const API_URL = "http://localhost:5000";
 
 const TAB_LIST = [
   { id: "candidateInfo", label: "Info" },
@@ -13,7 +15,123 @@ const CandidateDashboard = () => {
   const [activeTab, setActiveTab] = useState("candidateInfo");
   const [showEdit, setShowEdit] = useState(false);
 
-  // Main wrapper ensures 100vw/100vh; light blue background
+  // --- NEW STATE FOR DYNAMIC DATA ---
+  const [candidateInfo, setCandidateInfo] = useState(null);
+  const [editFormData, setEditFormData] = useState({ name: '', email: '', phone: '', description: '' });
+  const [liveResults, setLiveResults] = useState([]);
+  const [finalResults, setFinalResults] = useState([]);
+  const [oldPassword, setOldPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [message, setMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+
+  const token = localStorage.getItem("token"); // Get token once
+
+  // --- 1. PROTECTION & DATA FETCHING ---
+  useEffect(() => {
+    const role = localStorage.getItem("userRole");
+    if (!token || role !== 'candidate') {
+      navigate("/candidate-login");
+      return;
+    }
+
+    // Fetch candidate data
+    const fetchCandidateData = async () => {
+      try {
+        const response = await fetch(`${API_URL}/api/candidate/me`, {
+          headers: { "x-auth-token": token },
+        });
+        if (!response.ok) throw new Error("Token invalid");
+        const data = await response.json();
+        setCandidateInfo(data);
+        setEditFormData({ // Pre-fill the edit form
+          name: data.name,
+          email: data.email,
+          phone: data.phone || '',
+          description: data.description || ''
+        });
+      } catch (err) {
+        handleSignOut(); // Log out if token is bad
+      }
+    };
+    fetchCandidateData();
+  }, [navigate, token]);
+
+  // --- 2. FETCH RESULTS BASED ON TAB ---
+  useEffect(() => {
+    const fetchResults = async (type) => {
+      try {
+        const response = await fetch(`${API_URL}/api/results/${type}`);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.msg);
+        if (type === 'live') setLiveResults(data);
+        if (type === 'final') setFinalResults(data);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    if (activeTab === 'liveResults') fetchResults('live');
+    if (activeTab === 'finalResults') fetchResults('final');
+  }, [activeTab]);
+
+
+  // --- 3. HANDLER FUNCTIONS ---
+  const handleSignOut = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("userRole");
+    navigate("/");
+  };
+
+  const handleUpdateInfo = async (e) => {
+    e.preventDefault();
+    setMessage("");
+    setSuccessMessage("");
+    try {
+      const response = await fetch(`${API_URL}/api/candidate/me`, {
+        method: 'PUT',
+        headers: { "Content-Type": "application/json", "x-auth-token": token },
+        body: JSON.stringify(editFormData),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.msg);
+      
+      setSuccessMessage(data.msg);
+      setCandidateInfo(data.candidate); // Update info on screen
+      setShowEdit(false); // Hide form
+    } catch (err) {
+      setMessage(err.message);
+    }
+  };
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    setMessage("");
+    setSuccessMessage("");
+    try {
+      const response = await fetch(`${API_URL}/api/candidate/change-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-auth-token": token },
+        body: JSON.stringify({ oldPassword, newPassword }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.msg);
+      
+      setSuccessMessage(data.msg + " You will be logged out in 3 seconds.");
+      setOldPassword("");
+      setNewPassword("");
+      setTimeout(handleSignOut, 3000);
+    } catch (err) {
+      setMessage(err.message);
+    }
+  };
+  
+  const handleFormChange = (e) => {
+     setEditFormData({ ...editFormData, [e.target.name]: e.target.value });
+  };
+
+
+  // --- STYLES (FILLED IN) ---
   const wrapperStyle = {
     minHeight: "100vh",
     width: "100vw",
@@ -23,8 +141,6 @@ const CandidateDashboard = () => {
     flexDirection: "column",
     fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
   };
-
-  // Top blue header, full width
   const headerStyle = {
     background: "#1597ea",
     color: "white",
@@ -52,8 +168,6 @@ const CandidateDashboard = () => {
     transition: "background 0.3s",
     marginLeft: 0
   };
-
-  // Navigation tabs, wide and bold
   const tabsStyle = {
     width: "100%",
     background: "#fff",
@@ -78,8 +192,6 @@ const CandidateDashboard = () => {
     cursor: "pointer",
     transition: "background 0.2s"
   });
-
-  // Section/card container is maxed but will fill horizontally on larger screens
   const sectionWrap = {
     flex: 1,
     display: "flex",
@@ -89,8 +201,6 @@ const CandidateDashboard = () => {
     minHeight: 0,
     width: "100%",
   };
-
-  // Profile card style
   const profileCard = {
     width: "100%",
     maxWidth: 850,
@@ -102,7 +212,8 @@ const CandidateDashboard = () => {
     display: "flex",
     alignItems: "center",
     flexWrap: "wrap",
-    position: "relative"
+    position: "relative",
+    boxSizing: 'border-box',
   };
   const avatarStyle = {
     width: 70,
@@ -119,7 +230,6 @@ const CandidateDashboard = () => {
   };
   const infoBlock = { display: "flex", flexDirection: "column", flex: 1 };
   const infoLine = { margin: "4px 0", fontSize: "1.13rem", color: "#343a40" };
-
   const editBtnStyle = {
     background: "#1d9bfb",
     color: "#fff",
@@ -134,7 +244,6 @@ const CandidateDashboard = () => {
     display: "flex",
     alignItems: "center"
   };
-
   const cardSectionStyle = {
     width: "100%",
     maxWidth: 850,
@@ -142,10 +251,9 @@ const CandidateDashboard = () => {
     borderRadius: "14px",
     boxShadow: "0 2px 10px rgba(0,0,0,0.09)",
     padding: "2.1rem 2.1rem",
-    margin: "36px auto 0 auto"
+    margin: "36px auto 0 auto",
+    boxSizing: 'border-box',
   };
-
-  // Footer full width
   const footerStyle = {
     width: "100%",
     background: "#03396C",
@@ -159,30 +267,99 @@ const CandidateDashboard = () => {
     marginTop: "48px"
   };
   const footerCol = { display: "flex", flexDirection: "column" };
-  const footerLinks = { display: "flex", gap: "17px", marginTop: 5 };
+  const footerLinks = { 
+    display: "flex", 
+    gap: "17px", 
+    marginTop: 5,
+    visibility: "hidden" // Hides the links but keeps spacing
+  };
+
+  // New styles for forms
+  const formInput = {
+    width:"100%",
+    padding:"10px",
+    borderRadius:"7px",
+    border:"1px solid #ccc",
+    boxSizing: 'border-box',
+    fontSize: '1rem',
+    marginTop: '5px'
+  };
+  const formLabel = {
+    fontWeight: 'bold',
+    color: '#333'
+  };
+  const formGroup = {
+    marginBottom: '15px'
+  };
+  const messageStyles = (isError = true) => ({
+      textAlign: "center",
+      color: isError ? "red" : "green",
+      fontWeight: "bold",
+      margin: "15px 0",
+      fontSize: "1.1rem",
+  });
+  const resultsRow = (isWinner = false) => ({
+      display: 'flex',
+      justifyContent: 'space-between',
+      padding: '10px',
+      background: isWinner ? '#d4edda' : '#fff',
+      borderBottom: '1px solid #eee',
+      fontWeight: isWinner ? 'bold' : 'normal',
+      color: '#333', // Make sure text is visible
+  });
+
 
   // ========================= TAB CONTENTS =================== //
   function renderTab() {
+    // Show a loading state until info is fetched
+    if (!candidateInfo) {
+      return (
+        <div style={cardSectionStyle}>
+          <center><h3 style={{color: '#333'}}>Loading Dashboard...</h3></center>
+        </div>
+      );
+    }
+    
+    // INFO TAB
     if (activeTab === "candidateInfo") {
       return (
         <div style={profileCard}>
-          <div style={avatarStyle}>J</div>
+          <div style={avatarStyle}>{candidateInfo.name.charAt(0).toUpperCase()}</div>
           <div style={infoBlock}>
-            <h2 style={{ margin: 0, fontSize: "1.65rem", color: "#212529", fontWeight: 700 }}>Candidate</h2>
-            <div style={infoLine}><b>Email:</b> candidate@example.com</div>
-            <div style={infoLine}><b>Phone:</b> +91-7396480075</div>
-            <div style={infoLine}><b>About:</b> Candidate for Student Council</div>
+            <h2 style={{ margin: 0, fontSize: "1.65rem", color: "#212529", fontWeight: 700 }}>
+              {candidateInfo.name}
+            </h2>
+            <div style={infoLine}><b>Email:</b> {candidateInfo.email}</div>
+            <div style={infoLine}><b>Phone:</b> {candidateInfo.phone || 'N/A'}</div>
+            <div style={infoLine}><b>About:</b> {candidateInfo.description || 'N/A'}</div>
           </div>
           <button style={editBtnStyle} onClick={() => setShowEdit(prev => !prev)}>
-            <span role="img" aria-label="edit" style={{marginRight: 8}}>🖉</span>Edit Info
+            <span role="img" aria-label="edit" style={{marginRight: 8}}>🖉</span>
+            {showEdit ? 'Cancel' : 'Edit Info'}
           </button>
+          
+          {/* --- EDIT FORM --- */}
           {showEdit && (
             <div style={{marginTop: 30, width: "100%"}}>
-              <form>
-                <div style={{marginBottom:15}}><label>Name:</label><input type="text" defaultValue="Candidate" style={{width:"100%",padding:8,borderRadius:7,border:"1px solid #ccc"}}/></div>
-                <div style={{marginBottom:15}}><label>Email:</label><input type="email" defaultValue="candidate@example.com" style={{width:"100%",padding:8,borderRadius:7,border:"1px solid #ccc"}}/></div>
-                <div style={{marginBottom:15}}><label>Phone:</label><input type="text" defaultValue="+91-9876543210" style={{width:"100%",padding:8,borderRadius:7,border:"1px solid #ccc"}}/></div>
-                <div style={{marginBottom:15}}><label>Description:</label><textarea defaultValue="Candidate for Student Council" style={{width:"100%",padding:8,borderRadius:7,border:"1px solid #ccc"}}/></div>
+              <form onSubmit={handleUpdateInfo}>
+                <div style={formGroup}>
+                  <label style={formLabel}>Name:</label>
+                  <input type="text" name="name" value={editFormData.name} onChange={handleFormChange} style={formInput}/>
+                </div>
+                <div style={formGroup}>
+                  <label style={formLabel}>Email:</label>
+                  <input type="email" name="email" value={editFormData.email} onChange={handleFormChange} style={formInput}/>
+                </div>
+                <div style={formGroup}>
+                  <label style={formLabel}>Phone:</label>
+                  <input type="text" name="phone" value={editFormData.phone} onChange={handleFormChange} style={formInput}/>
+                </div>
+                <div style={formGroup}>
+                  <label style={formLabel}>Description:</label>
+                  <textarea name="description" value={editFormData.description} onChange={handleFormChange} style={{...formInput, minHeight: '80px'}}/>
+                </div>
+                {message && <div style={messageStyles(true)}>{message}</div>}
+                {successMessage && <div style={messageStyles(false)}>{successMessage}</div>}
                 <button type="submit" style={editBtnStyle}>Update Info</button>
               </form>
             </div>
@@ -190,30 +367,81 @@ const CandidateDashboard = () => {
         </div>
       );
     }
+
+    // LIVE RESULTS TAB
     if (activeTab === "liveResults") {
       return (
         <div style={cardSectionStyle}>
-          <center><h3>Live Voting Results</h3></center>
-          <div style={{ fontWeight: "bold", marginBottom: 10 }}>Voting is ongoing...</div>
-          <div>[Demo] Candidate 1: 45 votes; Candidate 2: 32 votes</div>
+          <center><h3 style={{color: '#333'}}>Live Voting Results</h3></center>
+          <div style={{...resultsRow(), background: '#eee', fontWeight: 'bold'}}>
+              <span>Candidate Name</span>
+              <span>Vote Count</span>
+          </div>
+          {liveResults.length > 0 ? liveResults.map((c, index) => (
+             <div key={c._id} style={resultsRow(index === 0)}>
+                <span>{c.name} {c._id === candidateInfo._id && "(You)"}</span>
+                <span>{c.votes}</span>
+             </div>
+          )) : (
+            <p style={{textAlign: 'center', padding: '20px', color: '#555'}}>Voting has not started or no votes cast yet.</p>
+          )}
         </div>
       );
     }
+    
+    // FINAL RESULTS TAB
     if (activeTab === "finalResults") {
       return (
         <div style={cardSectionStyle}>
-          <center><h3>Final Results</h3></center>
-          <div>
-            <p>Results will be published later</p>
+          <center><h3 style={{color: '#333'}}>Final Results</h3></center>
+          <div style={{...resultsRow(), background: '#eee', fontWeight: 'bold'}}>
+              <span>Candidate Name</span>
+              <span>Total Votes</span>
           </div>
+          {finalResults.length > 0 ? finalResults.map((c, index) => (
+             <div key={c._id} style={resultsRow(index === 0)}>
+                <span>{c.name} {c._id === candidateInfo._id && "(You)"}</span>
+                <span>{c.votes}</span>
+             </div>
+          )) : (
+            <p style={{textAlign: 'center', padding: '20px', color: '#555'}}>Final results are not yet published.</p>
+          )}
         </div>
       );
     }
+
+    // SETTINGS TAB
     if (activeTab === "settings") {
       return (
         <div style={cardSectionStyle}>
-          <center><h3>Settings</h3></center>
-          <p>[Settings options go here — edit info, change password, etc.]</p>
+          <center><h3 style={{color: '#333'}}>Settings - Change Password</h3></center>
+          <form onSubmit={handleChangePassword}>
+             <div style={formGroup}>
+                <label style={formLabel}>Old Password:</label>
+                <input 
+                  type="password" 
+                  value={oldPassword} 
+                  onChange={(e) => setOldPassword(e.target.value)} 
+                  style={formInput}
+                  placeholder="Enter 'password123' if first login"
+                />
+             </div>
+             <div style={formGroup}>
+                <label style={formLabel}>New Password:</label>
+                <input 
+                  type="password" 
+                  value={newPassword} 
+                  onChange={(e) => setNewPassword(e.target.value)} 
+                  style={formInput}
+                  placeholder="Enter a strong new password"
+                />
+             </div>
+             {message && <div style={messageStyles(true)}>{message}</div>}
+             {successMessage && <div style={messageStyles(false)}>{successMessage}</div>}
+             <button type="submit" style={{...editBtnStyle, background: '#27ae60'}}>
+                Update Password
+             </button>
+          </form>
         </div>
       );
     }
@@ -227,10 +455,13 @@ const CandidateDashboard = () => {
       <div style={headerStyle}>
         <div style={{display:"flex",alignItems:"center",gap:6}}>
           <span style={headerTitle}>Candidate Dashboard</span>
-          <span style={headerGreeting}>Welcome, <b style={{color:"#fff"}}>Candidate</b></span>
+          <span style={headerGreeting}>
+            Welcome, <b style={{color:"#fff"}}>{candidateInfo?.name || '...'}</b>
+          </span>
         </div>
-        <button style={signOutBtn} onClick={() => navigate("/")}>Sign Out</button>
+        <button style={signOutBtn} onClick={handleSignOut}>Sign Out</button>
       </div>
+      
       {/* Tabs Nav */}
       <nav style={tabsStyle}>
         {TAB_LIST.map(tab => (
@@ -243,8 +474,10 @@ const CandidateDashboard = () => {
           </button>
         ))}
       </nav>
+      
       {/* Tab content section */}
       <main style={sectionWrap}>{renderTab()}</main>
+      
       {/* Footer */}
       <footer style={footerStyle}>
         <div style={footerCol}>
@@ -260,9 +493,10 @@ const CandidateDashboard = () => {
         <div style={{textAlign:"right"}}>
           <div>© 2025 SBVS. All Rights Reserved.</div>
           <div style={footerLinks}>
-            <a href="/help" style={{color:"#fff", textDecoration:"underline"}}>Help</a>
-            <a href="/support" style={{color:"#fff", textDecoration:"underline"}}>Support</a>
-            <a href="/complaints" style={{color:"#fff", textDecoration:"underline"}}>Complaints</a>
+            {/* Links are hidden via CSS */}
+            <a href="/help">Help</a>
+            <a href="/support">Support</a>
+            <a href="/complaints">Complaints</a>
           </div>
         </div>
       </footer>
@@ -271,3 +505,4 @@ const CandidateDashboard = () => {
 };
 
 export default CandidateDashboard;
+
