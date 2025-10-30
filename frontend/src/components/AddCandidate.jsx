@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-const API_URL = "http://localhost:5000";
-
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 const AddCandidate = ({ styles, token }) => {
   const [formData, setFormData] = useState({ name: '', email: '', phone: '', description: '' });
   const [message, setMessage] = useState('');

@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom"; 
 
-const API_URL = "http://localhost:5000";
-
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 const VoterPortal = () => {
   const [regno, setRegno] = useState("");
   const [stage, setStage] = useState("check_regno"); // 'check_regno', 'vote', 'voted'
