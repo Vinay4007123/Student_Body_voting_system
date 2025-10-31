@@ -68,7 +68,7 @@ const Home = () => {
         </h1>
         <p style={{ color: "#555", fontSize: "1.1rem", marginBottom: "2.5rem", lineHeight: 1.6 }}>
           The Student Body Voting System is designed to provide a secure and transparent platform for students to digitally elect their representatives. It includes a robust verification system to ensure voting integrity, real-time result updates, and prevents multiple votes by the same individual.
-          Admins can easily manage candidates and voters, while all participants experience a user-friendly interface. This system was proudly created by Janakiram as a part of VFSTR's student projects to enhance democratic practices in campus life.
+          Admins can easily manage candidates and voters, while all participants experience a user-friendly interface. This system was proudly created by Vinay and Tapaswi as a part of VFSTR's student projects to enhance democratic practices in campus life.
         </p>
         
         {/* Button Container */}
